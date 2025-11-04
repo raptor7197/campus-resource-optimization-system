@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Campus Resource • Login</title>
+  <style>
+    body { font-family: system-ui, Arial; margin: 0; background:#f6f7fb; color:#222; }
+    .wrap { max-width: 420px; margin: 10vh auto; background:#fff; padding:24px; border-radius:14px; box-shadow:0 6px 24px rgba(0,0,0,.08); }
+    h1 { font-size: 22px; margin:0 0 16px; }
+    input { width:100%; padding:10px 12px; margin:8px 0; border:1px solid #ddd; border-radius:10px; }
+    button { width:100%; padding:10px 12px; border:0; background:#2d6cdf; color:#fff; border-radius:10px; cursor:pointer; }
+    .note { font-size:12px; color:#666; margin-top:10px; }
+    .err { color:#b42318; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Campus Resource Login</h1>
+    <input id="email" placeholder="Email" value="rohan.sharma@uni.in">
+    <input id="password" type="password" placeholder="Password" value="pass">
+    <button onclick="doLogin()">Login</button>
+    <div id="msg" class="err"></div>
+    <p class="note">Try <b>admin@campus.in</b> / <b>admin123</b> or faculty user from DB.</p>
+  </div>
+
+<script>
+async function doLogin() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const res = await fetch('/login', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({email, password})
+  });
+  const data = await res.json();
+  if(!res.ok) { document.getElementById('msg').innerText = data.error || 'Login failed'; return; }
+  if(data.user.role === 'admin') location.href = '/admin';
+  else location.href = '/dashboard';
+}
+</script>
+</body>
+</html>

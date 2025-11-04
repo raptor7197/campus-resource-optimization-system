@@ -1,0 +1,146 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Campus Admin Dashboard</title>
+  <style>
+    body { font-family: system-ui, Arial; margin:0; background:#f6f7fb; color:#222; }
+    header { background:#1f2937; color:#fff; padding:14px 18px; display:flex; gap:16px; align-items:center; }
+    header a { color:#fff; text-decoration:none; opacity:.9 }
+    header a:hover { opacity:1 }
+    main { max-width: 980px; margin: 24px auto; background:#fff; padding:20px; border-radius:14px; box-shadow:0 6px 24px rgba(0,0,0,.06); }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:10px; border-bottom:1px solid #eee; text-align:left; }
+    button { padding:6px 10px; margin-right:4px; border:0; border-radius:6px; cursor:pointer; }
+    .approve { background:#22c55e; color:#fff; }
+    .cancel { background:#ef4444; color:#fff; }
+    .book { background:#2563eb; color:#fff; }
+    .tab-buttons { display:flex; gap:8px; margin-bottom:12px; }
+    .tab-buttons button { flex:1; background:#e5e7eb; color:#111; border:none; padding:8px; border-radius:8px; cursor:pointer; }
+    .tab-buttons button.active { background:#2563eb; color:#fff; }
+    .hidden { display:none; }
+    input, select { padding:8px 10px; border:1px solid #ddd; border-radius:10px; margin-right:6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Campus Admin Panel</strong>
+    <a href="#" onclick="logout()">Logout</a>
+  </header>
+
+  <main>
+    <div class="tab-buttons">
+      <button id="btnPending" class="active" onclick="switchTab('pending')">Pending Requests</button>
+      <button id="btnAvailable" onclick="switchTab('available')">Available Rooms</button>
+    </div>
+
+    <!-- Pending requests -->
+    <section id="tabPending">
+      <h2>Pending Booking Requests</h2>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Faculty</th><th>Room</th><th>Start</th><th>End</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="pendings"></tbody>
+      </table>
+    </section>
+
+    <!-- Available rooms -->
+    <section id="tabAvailable" class="hidden">
+      <h2>Available Rooms</h2>
+      <div style="margin-bottom:10px;">
+        <input id="start" type="datetime-local">
+        <input id="end" type="datetime-local">
+        <button class="book" onclick="search()">Search</button>
+      </div>
+      <table>
+        <thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Book</th></tr></thead>
+        <tbody id="results"></tbody>
+      </table>
+    </section>
+  </main>
+
+<script>
+function switchTab(tab){
+  document.getElementById('tabPending').classList.add('hidden');
+  document.getElementById('tabAvailable').classList.add('hidden');
+  document.getElementById('btnPending').classList.remove('active');
+  document.getElementById('btnAvailable').classList.remove('active');
+  if(tab==='pending'){
+    document.getElementById('tabPending').classList.remove('hidden');
+    document.getElementById('btnPending').classList.add('active');
+    loadPending();
+  } else {
+    document.getElementById('tabAvailable').classList.remove('hidden');
+    document.getElementById('btnAvailable').classList.add('active');
+  }
+}
+
+async function logout(){ await fetch('/logout',{method:'POST'}); location.href='/login_page'; }
+
+async function loadPending(){
+  const res = await fetch('/bookings_all');
+  const data = await res.json();
+  const tbody = document.getElementById('pendings');
+  const list = data.filter(b => b.status === 'pending');
+  tbody.innerHTML = list.length ? list.map(b=>`
+    <tr>
+      <td>${b.id}</td>
+      <td>${b.faculty}</td>
+      <td>${b.room}</td>
+      <td>${b.start_time.replace('T',' ')}</td>
+      <td>${b.end_time.replace('T',' ')}</td>
+      <td>${b.status}</td>
+      <td>
+        <button class="approve" onclick="approve(${b.id})">Approve</button>
+        <button class="cancel" onclick="cancel(${b.id})">Cancel</button>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="7">No pending requests</td></tr>`;
+}
+
+async function approve(id){
+  const res = await fetch('/approve/'+id, {method:'POST'});
+  const data = await res.json();
+  alert(data.message || data.error);
+  loadPending();
+}
+
+async function cancel(id){
+  const res = await fetch('/cancel/'+id, {method:'POST'});
+  const data = await res.json();
+  alert(data.message || data.error);
+  loadPending();
+}
+
+// ------- Available room search + booking --------
+async function search(){
+  const s=document.getElementById('start').value;
+  const e=document.getElementById('end').value;
+  const res=await fetch(`/available_rooms?start=${encodeURIComponent(s)}&end=${encodeURIComponent(e)}`);
+  const data=await res.json();
+  const tb=document.getElementById('results');
+  tb.innerHTML=data.length ? data.map(r=>`
+    <tr>
+      <td>${r.name}</td>
+      <td>${r.type}</td>
+      <td>${r.capacity}</td>
+      <td><button class="book" onclick="book(${r.id})">Book</button></td>
+    </tr>`).join(''):`<tr><td colspan="4">No rooms free</td></tr>`;
+}
+
+async function book(room_id){
+  const start_time=document.getElementById('start').value.replace('T',' ');
+  const end_time=document.getElementById('end').value.replace('T',' ');
+  const res=await fetch('/book',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({room_id,start_time,end_time})
+  });
+  const data=await res.json();
+  alert(data.message || data.error);
+  if(data.status==='success') search();
+}
+
+loadPending();
+</script>
+</body>
+</html>

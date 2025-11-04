@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Dashboard</title>
+  <style>
+    body { font-family: system-ui, Arial; margin:0; background:#f6f7fb; color:#222; }
+    header { background:#1f2937; color:#fff; padding:14px 18px; display:flex; gap:16px; align-items:center; }
+    header a { color:#fff; text-decoration:none; opacity:.9 }
+    header a:hover { opacity:1 }
+    main { max-width: 980px; margin: 24px auto; background:#fff; padding:20px; border-radius:14px; box-shadow:0 6px 24px rgba(0,0,0,.06); }
+    h2 { margin-top:0 }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding:10px; border-bottom:1px solid #eee; text-align:left; }
+    .row { display:flex; gap:12px; margin: 10px 0 18px; }
+    input, select { padding:8px 10px; border:1px solid #ddd; border-radius:10px; }
+    button { padding:8px 12px; border:0; background:#2d6cdf; color:#fff; border-radius:10px; cursor:pointer; }
+    .muted { color:#666; font-size:13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Campus Resource</strong>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/available">Find Available</a>
+    <a href="#" onclick="logout()">Logout</a>
+  </header>
+  <main>
+    <h2>My Bookings</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Room</th><th>Type</th><th>Start</th><th>End</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody id="sched"></tbody>
+    </table>
+
+    <h3>New Booking</h3>
+    <div class="row">
+      <select id="room"></select>
+      <input id="start" type="datetime-local">
+      <input id="end" type="datetime-local">
+      <button onclick="book()">Book</button>
+    </div>
+    <div id="msg" class="muted"></div>
+  </main>
+
+<script>
+async function logout(){ await fetch('/logout',{method:'POST'}); location.href='/login_page'; }
+
+async function loadRooms(){
+  const res = await fetch('/rooms'); const data = await res.json();
+  const sel = document.getElementById('room');
+  sel.innerHTML = data.map(r=>`<option value="${r.id}">${r.name} (${r.type})</option>`).join('');
+}
+
+async function loadBookings(){
+  const res = await fetch('/schedule/' + window.__USER_ID__);
+  const data = await res.json();
+  const tbody = document.getElementById('sched');
+  tbody.innerHTML = data.map(b=>`
+    <tr>
+      <td>${b.id}</td><td>${b.room}</td><td>${b.type}</td>
+      <td>${b.start_time.replace('T',' ')}</td><td>${b.end_time.replace('T',' ')}</td>
+      <td>${b.status}</td>
+      <td>${b.status!=='cancelled'?`<button onclick="cancel(${b.id})">Cancel</button>`:''}</td>
+    </tr>`).join('');
+}
+
+async function book(){
+  const room_id = document.getElementById('room').value;
+  const start_time = document.getElementById('start').value.replace('T',' ');
+  const end_time = document.getElementById('end').value.replace('T',' ');
+  const res = await fetch('/book', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({room_id, start_time, end_time})
+  });
+  const data = await res.json();
+  document.getElementById('msg').innerText = data.message || data.error;
+  await loadBookings();
+}
+
+async function cancel(id){
+  const res = await fetch('/cancel/'+id,{method:'POST'});
+  const data = await res.json();
+  document.getElementById('msg').innerText = data.message || data.error;
+  await loadBookings();
+}
+
+// Injected by Flask:
+window.__USER_ID__ = {{ user_id|tojson }};
+loadRooms(); loadBookings();
+</script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Find Available Rooms</title>
+  <style>
+    body { font-family: system-ui, Arial; margin:0; background:#f6f7fb; color:#222; }
+    header { background:#1f2937; color:#fff; padding:14px 18px; display:flex; gap:16px; align-items:center; }
+    header a { color:#fff; text-decoration:none; opacity:.9 }
+    header a:hover { opacity:1 }
+    main { max-width: 980px; margin: 24px auto; background:#fff; padding:20px; border-radius:14px; box-shadow:0 6px 24px rgba(0,0,0,.06); }
+    h2 { margin-top:0 }
+    .row { display:flex; gap:12px; margin-bottom: 16px; }
+    input, select { padding:8px 10px; border:1px solid #ddd; border-radius:10px; }
+    button { padding:8px 12px; border:0; background:#2d6cdf; color:#fff; border-radius:10px; cursor:pointer; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding:10px; border-bottom:1px solid #eee; text-align:left; }
+    .msg { margin-top:10px; color:#2d6cdf; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Campus Resource</strong>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/available">Available Rooms</a>
+    <a href="#" onclick="logout()">Logout</a>
+  </header>
+  <main>
+    <h2>Search and Book Rooms</h2>
+    <div class="row">
+      <input id="start" type="datetime-local">
+      <input id="end" type="datetime-local">
+      <button onclick="search()">Search</button>
+    </div>
+    <table>
+      <thead><tr><th>Room</th><th>Type</th><th>Capacity</th><th>Action</th></tr></thead>
+      <tbody id="results"></tbody>
+    </table>
+    <div class="msg" id="msg"></div>
+  </main>
+
+<script>
+async function logout(){
+  await fetch('/logout',{method:'POST'});
+  location.href='/login_page';
+}
+
+// Search available rooms
+async function search(){
+  const s=document.getElementById('start').value;
+  const e=document.getElementById('end').value;
+  const res=await fetch(`/available_rooms?start=${encodeURIComponent(s)}&end=${encodeURIComponent(e)}`);
+  const data=await res.json();
+  const tb=document.getElementById('results');
+  tb.innerHTML=data.length?data.map(r=>`
+    <tr>
+      <td>${r.name}</td>
+      <td>${r.type}</td>
+      <td>${r.capacity}</td>
+      <td><button onclick="book(${r.id})">Book</button></td>
+    </tr>`).join(''):`<tr><td colspan="4">No rooms free</td></tr>`;
+}
+
+// Book selected room
+async function book(room_id){
+  const start_time=document.getElementById('start').value.replace('T',' ');
+  const end_time=document.getElementById('end').value.replace('T',' ');
+  const res=await fetch('/book',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({room_id,start_time,end_time})
+  });
+  const data=await res.json();
+  const msg=document.getElementById('msg');
+  msg.innerText = data.message || data.error;
+  if(data.status==='success') search(); // refresh results
+}
+</script>
+</body>
+</html>
